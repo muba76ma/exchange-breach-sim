@@ -1,0 +1,20 @@
+title: Forged Internal Withdrawal via Service Identity Reuse
+id: 5f1c2e9a-0000-4000-8000-exchange-breachsim
+status: experimental
+description: Detects forged internal withdrawals carrying a trusted service identity
+author: exchange-breach-sim
+logsource:
+  product: generic
+  service: withdrawal-service
+detection:
+  selection_identity:
+    X-Service-Identity: "withdrawal-service"
+  selection_no_gateway:
+    gateway_auth_present: false
+  condition: selection_identity and selection_no_gateway
+falsepositives:
+  - Legitimate batch reconciliation jobs
+level: high
+tags:
+  - attack.t1550
+  - attack.t1567

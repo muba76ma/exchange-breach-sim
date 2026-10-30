@@ -1,0 +1,29 @@
+services:
+  withdrawal-service:
+    build: ./exchange/withdrawal-service
+    ports: ["127.0.0.1:8081:8081"]
+    environment:
+      - HSM_URL=http://hsm-mock:8082
+    depends_on: [hsm-mock]
+
+  hsm-mock:
+    build: ./exchange/hsm-mock
+    ports: ["127.0.0.1:8082:8082"]
+    environment:
+      - ALLOWED_SERVICE_CERT=withdrawal-service
+
+  ledger-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=ledger
+      - POSTGRES_PASSWORD=ledger
+      - POSTGRES_DB=ledger
+    volumes:
+      - ./exchange/ledger-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["127.0.0.1:5432:5432"]
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./exchange/frontend/index.html:/usr/share/nginx/html/index.html:ro
+    ports: ["127.0.0.1:8080:80"]

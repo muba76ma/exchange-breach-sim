@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+lab/attacker-loot/
+telemetry/otel.log

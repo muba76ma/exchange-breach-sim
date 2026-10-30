@@ -8,8 +8,6 @@ HSM_URL = os.getenv("HSM_URL", "http://hsm-mock:8082")
 
 @app.route("/internal/withdraw", methods=["POST"])
 def internal_withdraw():
-    # VULNERABILITY: trusts any request carrying the internal service identity.
-    # No gateway log, no user auth, no per-request freshness check.
     svc = request.headers.get("X-Service-Identity", "unknown")
     body = request.get_json() or {}
     logging.info(f"withdraw request svc={svc} body={body}")
