@@ -16,5 +16,9 @@ def sign():
     logging.info(f"HSM SIGNED amount={body.get('amount')} to={body.get('to')} sig={fake_sig}")
     return jsonify({"signed": True, "signature": fake_sig, "amount": body.get("amount")})
 
+@app.route("/healthz")
+def healthz():
+    return "ok"
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8082)
