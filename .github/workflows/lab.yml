@@ -1,0 +1,56 @@
+name: lab
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flask requests
+
+      - name: Start vulnerable stack
+        run: |
+          export HSM_URL=http://127.0.0.1:8082
+          python exchange/hsm-mock/app.py > /tmp/hsm.log 2>&1 &
+          python exchange/withdrawal-service/app.py > /tmp/ws.log 2>&1 &
+          python defense/layered-withdrawal-guard/app.py > /tmp/guard.log 2>&1 &
+          sleep 3
+          curl -fsS http://127.0.0.1:8082/healthz
+          curl -fsS http://127.0.0.1:8081/healthz
+          curl -fsS http://127.0.0.1:8091/healthz
+
+      - name: Attack succeeds against vulnerable service
+        run: |
+          python attacker/forge_withdrawal_request.py \
+            --target http://127.0.0.1:8081/internal/withdraw | tee /tmp/attack.out
+          grep -q '"signed":true' /tmp/attack.out
+
+      - name: Attack is blocked by hardened guard
+        run: |
+          CODE=$(curl -s -o /tmp/guard.out -w '%{http_code}' \
+            -X POST http://127.0.0.1:8091/internal/withdraw \
+            -H 'Content-Type: application/json' \
+            -H 'X-Service-Identity: withdrawal-service' \
+            -d '{"amount":"6.36","asset":"BTC","to":"bc1qdemo","user_id":"alice"}')
+          echo "HTTP $CODE"
+          cat /tmp/guard.out
+          test "$CODE" = "403"
+          grep -q 'second approval' /tmp/guard.out
+
+      - name: Velocity limit works
+        run: |
+          for i in 1 2 3; do
+            curl -s -X POST http://127.0.0.1:8091/internal/withdraw \
+              -H 'Content-Type: application/json' \
+              -H 'X-Service-Identity: withdrawal-service' \
+              -H 'X-Second-Approval: compliance-service' \
+              -d '{"amount":"6.36"}' -o /dev/null -w "%{http_code}\n"
+          done | tee /tmp/codes.txt
+          grep -q '^429$' /tmp/codes.txt
